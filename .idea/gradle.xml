@@ -13,7 +13,6 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/openCVLibrary343" />
-            <option value="$PROJECT_DIR$/openCVSamplefacedetection" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />
