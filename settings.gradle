@@ -1,0 +1,4 @@
+include ':app'
+rootProject.name = "OpenCvProject"
+include ':openCVLibrary343'
+include ':openCVSamplefacedetection'
