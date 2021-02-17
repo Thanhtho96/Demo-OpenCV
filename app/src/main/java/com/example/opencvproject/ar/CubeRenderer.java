@@ -30,19 +30,6 @@ class CubeRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 gl, javax.microedition.khronos.egl.EGLConfig config) {
-
-    }
-
-    public void onSurfaceChanged(GL10 gl, int width, int height) {
-        gl.glViewport(0, 0, width, height);
-        float ratio = (float) width / height;
-        gl.glMatrixMode(GL10.GL_PROJECTION);
-        gl.glLoadIdentity();
-        gl.glFrustumf(-ratio, ratio, -1, 1, 1, 10);
-    }
-
-    public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-
         gl.glDisable(GL10.GL_DITHER);
         gl.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_FASTEST);
         if (mTranslucentBackground) {
@@ -53,6 +40,15 @@ class CubeRenderer implements GLSurfaceView.Renderer {
         gl.glEnable(GL10.GL_CULL_FACE);
         gl.glShadeModel(GL10.GL_SMOOTH);
         gl.glEnable(GL10.GL_DEPTH_TEST);
+    }
+
+    @Override
+    public void onSurfaceChanged(GL10 gl, int width, int height) {
+        gl.glViewport(0, 0, width, height);
+        float ratio = (float) width / height;
+        gl.glMatrixMode(GL10.GL_PROJECTION);
+        gl.glLoadIdentity();
+        gl.glFrustumf(-ratio, ratio, -1, 1, 1, 10);
     }
 
     public void setAngle(float _angle){
