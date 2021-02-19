@@ -43,10 +43,7 @@ configurations {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation "com.android.support:appcompat-v7:${rootProject.ext.androidSupportSdkVersion}"
-    javadocDeps "com.android.support:appcompat-v7:${rootProject.ext.androidSupportSdkVersion}"
-    implementation "com.android.support:support-annotations:${rootProject.ext.androidSupportSdkVersion}"
-    javadocDeps "com.android.support:support-annotations:${rootProject.ext.androidSupportSdkVersion}"
+    implementation 'androidx.annotation:annotation:1.1.0'
 }
 
 buildscript {
@@ -54,7 +51,6 @@ buildscript {
         mavenCentral()
     }
 }
-apply plugin: 'com.jakewharton.hugo'
 
 // call regular ndk-build(.cmd) script from app directory
 def GetNDKDir()  {
@@ -96,53 +92,6 @@ def GetNDKDir()  {
     return ndk_path
 }
 
-def NDKCommand() {
-    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-        return GetNDKDir() + "ndk-build.cmd"
-    } else {
-        return GetNDKDir() + "ndk-build"
-    }
-}
-
-apply plugin: 'com.jfrog.bintray'
-apply plugin: 'com.github.dcendents.android-maven'
-
-def siteUrl = 'https://github.com/tzutalin/dlib-android-app'      // Homepage URL of the library
-def gitUrl = 'https://github.com/tzutalin/dlib-android-app.git'   // Git repository URL
-
-install {
-    repositories.mavenInstaller {
-        // This generates POM.xml with proper parameters
-        pom {
-            project {
-                packaging 'aar'
-                name 'An Android library to wrap dlib library'
-                url siteUrl
-                // Set your license
-                licenses {
-                    license {
-                        name 'The Apache Software License, Version 2.0'
-                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id 'tzutalin'
-                        name 'tzutalin'
-                        email 'tzu.ta.lin@gmail.com'
-                    }
-                }
-                scm {
-                    connection gitUrl
-                    developerConnection gitUrl
-                    url siteUrl
-
-                }
-            }
-        }
-    }
-}
-
 task generateSourcesJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
     classifier 'sources'
@@ -164,32 +113,4 @@ generateJavadocsJar.dependsOn generateJavadocs
 artifacts {
     archives generateJavadocsJar
     archives generateSourcesJar
-}
-
-Properties properties = new Properties()
-if(project.rootProject.file('local.properties').isFile()) {
-    properties.load(project.rootProject.file('local.properties').newDataInputStream())
-
-    bintray {
-        user = properties.getProperty("bintray.user")
-        key = properties.getProperty("bintray.apikey")
-
-        configurations = ['archives']
-        pkg {
-            repo = "maven"
-            name = "dlib-android-app"
-            version {
-                name = "${rootProject.ext.releaseVersionName}"
-                desc = 'An Android library to wrap dlib library'
-                released  = new Date()
-                vcsTag = "${rootProject.ext.releaseVersionName}"
-            }
-
-            websiteUrl = siteUrl
-            vcsUrl = gitUrl
-            licenses = ["Apache-2.0"]
-            publish = true
-        }
-        configurations = ['archives']
-    }
 }

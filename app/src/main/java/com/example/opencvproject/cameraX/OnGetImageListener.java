@@ -1,7 +1,6 @@
 package com.example.opencvproject.cameraX;
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -10,11 +9,14 @@ import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.media.Image;
-import android.os.Handler;
 import android.os.Trace;
+import android.util.AttributeSet;
 import android.util.Log;
-import android.view.Display;
-import android.view.WindowManager;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.ViewTreeObserver;
+
+import androidx.annotation.Nullable;
 
 import com.tzutalin.dlib.FaceDet;
 import com.tzutalin.dlib.VisionDetRet;
@@ -29,56 +31,60 @@ import java.util.List;
 /**
  * Class that takes in preview frames and converts the image to Bitmaps to process with dlib lib.
  */
-public class OnGetImageListener {
-    private static final boolean SAVE_PREVIEW_BITMAP = false;
-
+public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Callback {
     private static final int INPUT_SIZE = 224;
     private static final String TAG = "OnGetImageListener";
-
-    private int mScreenRotation = 90;
 
     private Bitmap rgbBitmap = null;
     private Bitmap cropRgbBitmap = null;
 
     private boolean mIsComputing = false;
-    private Handler mInferenceHandler;
 
-    private Context mContext;
     private FaceDet mFaceDet;
-    private FloatingCameraWindow mWindow;
     private Paint mFaceLandmardkPaint;
     private File mCascadeFile;
     private YuvToRgbConverter yuvConverter;
+    private SurfaceHolder holder;
+    private Rect inputImageRect;
 
-    public void initialize(
-            final Context context,
-            final Handler handler) {
-        this.mContext = context;
-        this.mInferenceHandler = handler;
-        yuvConverter = new YuvToRgbConverter(mContext);
-        try {
-            InputStream is = context.getAssets().open("shape_predictor_68_face_landmarks.dat");
-            File cascadeDir = context.getDir("cascade", Context.MODE_PRIVATE);
-            mCascadeFile = new File(cascadeDir, "shape_predictor_68_face_landmarks.dat");
-            FileOutputStream os = new FileOutputStream(mCascadeFile);
+    public OnGetImageListener(Context context, @Nullable AttributeSet attrs) {
+        super(context, attrs);
 
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = is.read(buffer)) != -1) {
-                os.write(buffer, 0, bytesRead);
+        getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                inputImageRect = new Rect(getLeft(), getTop(), getRight(), getBottom());
             }
-            is.close();
-            os.close();
+        });
+
+
+    }
+
+    public void initialize() {
+        yuvConverter = new YuvToRgbConverter(getContext());
+        try {
+            InputStream is = getContext().getAssets().open("shape_predictor_68_face_landmarks.dat");
+            File cascadeDir = getContext().getDir("cascade", Context.MODE_PRIVATE);
+            mCascadeFile = new File(cascadeDir, "shape_predictor_68_face_landmarks.dat");
+
+            if (!mCascadeFile.exists()) {
+                FileOutputStream os = new FileOutputStream(mCascadeFile);
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
+                }
+                is.close();
+                os.close();
+            }
 
             mFaceDet = new FaceDet(mCascadeFile.getAbsolutePath());
 
-//            cascadeDir.delete();
         } catch (IOException e) {
             e.printStackTrace();
             Log.e(TAG, "Failed to load cascade. Exception thrown: " + e);
         }
-
-//        mWindow = new FloatingCameraWindow(mContext);
 
         mFaceLandmardkPaint = new Paint();
         mFaceLandmardkPaint.setColor(Color.RED);
@@ -91,30 +97,10 @@ public class OnGetImageListener {
             if (mFaceDet != null) {
                 mFaceDet.release();
             }
-
-            if (mWindow != null) {
-                mWindow.release();
-            }
         }
     }
 
     private void drawResizedBitmap(final Bitmap src, final Bitmap dst) {
-
-        Display getOrient = ((WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-        int orientation = Configuration.ORIENTATION_UNDEFINED;
-        Point point = new Point();
-        getOrient.getSize(point);
-        int screen_width = point.x;
-        int screen_height = point.y;
-        Log.d(TAG, String.format("screen size (%d,%d)", screen_width, screen_height));
-        if (screen_width < screen_height) {
-            orientation = Configuration.ORIENTATION_PORTRAIT;
-            mScreenRotation = 90;
-        } else {
-            orientation = Configuration.ORIENTATION_LANDSCAPE;
-            mScreenRotation = 0;
-        }
-
         final float minDim = Math.min(src.getWidth(), src.getHeight());
 
         final Matrix matrix = new Matrix();
@@ -128,17 +114,20 @@ public class OnGetImageListener {
         matrix.postScale(scaleFactor, scaleFactor);
 
         // Rotate around the center if necessary.
-        if (mScreenRotation != 0) {
-            matrix.postTranslate(-dst.getWidth() / 2.0f, -dst.getHeight() / 2.0f);
-            matrix.postRotate(mScreenRotation);
-            matrix.postTranslate(dst.getWidth() / 2.0f, dst.getHeight() / 2.0f);
-        }
+        matrix.postTranslate(-dst.getWidth() / 2.0f, -dst.getHeight() / 2.0f);
+        matrix.postTranslate(dst.getWidth() / 2.0f, dst.getHeight() / 2.0f);
 
         final Canvas canvas = new Canvas(dst);
         canvas.drawBitmap(src, matrix, null);
     }
 
-    public void onImageAvailable(final Image image) {
+    private Bitmap rotate(Bitmap bitmap, Integer degree) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+    }
+
+    public void onImageAvailable(final Image image, Integer rotateDegree) {
         if (image == null) {
             return;
         }
@@ -146,45 +135,72 @@ public class OnGetImageListener {
             image.close();
             return;
         }
+        if (holder == null) {
+            return;
+        }
         mIsComputing = true;
+
         rgbBitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         cropRgbBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
         yuvConverter.yuvToRgb(image, rgbBitmap);
+        rgbBitmap = rotate(rgbBitmap, rotateDegree);
         drawResizedBitmap(rgbBitmap, cropRgbBitmap);
         Log.d(TAG, "rgbBitmap: " + rgbBitmap.getHeight() + " " + rgbBitmap.getWidth());
 
-        mInferenceHandler.post(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        List<VisionDetRet> results = mFaceDet.detect(rgbBitmap);
-                        // Draw on bitmap
-                        if (results != null) {
-                            for (final VisionDetRet ret : results) {
-                                float resizeRatio = 1.0f;
-                                Rect bounds = new Rect();
-                                bounds.left = (int) (ret.getLeft() * resizeRatio);
-                                bounds.top = (int) (ret.getTop() * resizeRatio);
-                                bounds.right = (int) (ret.getRight() * resizeRatio);
-                                bounds.bottom = (int) (ret.getBottom() * resizeRatio);
-                                Canvas canvas = new Canvas(rgbBitmap);
-                                canvas.drawRect(bounds, mFaceLandmardkPaint);
+        Canvas canvas = new Canvas(rgbBitmap);
+        List<VisionDetRet> results = mFaceDet.detect(cropRgbBitmap);
+        // Draw on bitmap
+        if (results != null) {
+            for (final VisionDetRet ret : results) {
+                float resizeRatio = 1.0f;
+                Rect bounds = new Rect();
+                bounds.left = (int) (ret.getLeft() * resizeRatio);
+                bounds.top = (int) (ret.getTop() * resizeRatio);
+                bounds.right = (int) (ret.getRight() * resizeRatio);
+                bounds.bottom = (int) (ret.getBottom() * resizeRatio);
 
-                                // Draw landmark
-                                ArrayList<Point> landmarks = ret.getFaceLandmarks();
-                                for (Point point : landmarks) {
-                                    int pointX = (int) (point.x * resizeRatio);
-                                    int pointY = (int) (point.y * resizeRatio);
-                                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmardkPaint);
-                                }
-                            }
-                        }
+                canvas.drawRect(bounds, mFaceLandmardkPaint);
 
-//                        mWindow.setRGBBitmap(mCroppedBitmap);
-                        mIsComputing = false;
-                    }
-                });
+                // Draw landmark
+                ArrayList<Point> landmarks = ret.getFaceLandmarks();
+                for (Point point : landmarks) {
+                    int pointX = (int) (point.x * resizeRatio);
+                    int pointY = (int) (point.y * resizeRatio);
+                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmardkPaint);
+                }
+            }
+        }
+
+        mIsComputing = false;
 
         Trace.endSection();
+        tryDrawing(holder);
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    }
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        this.holder = holder;
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+    }
+
+    private void tryDrawing(SurfaceHolder holder) {
+        Canvas canvas = holder.lockCanvas();
+        if (canvas == null) {
+            Log.e(TAG, "Cannot draw onto the canvas as it's null");
+        } else {
+            drawMyStuff(canvas);
+            holder.unlockCanvasAndPost(canvas);
+        }
+    }
+
+    private void drawMyStuff(final Canvas canvas) {
+        canvas.drawBitmap(rgbBitmap, null, inputImageRect, null);
     }
 }
