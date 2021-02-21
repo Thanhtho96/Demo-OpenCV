@@ -52,7 +52,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
             @Override
             public void onGlobalLayout() {
                 getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                inputImageRect = new Rect(getLeft(), getTop(), getRight(), getBottom());
+                inputImageRect = new Rect(0, 0, getRight(), getBottom());
             }
         });
 
@@ -129,7 +129,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         if (holder == null) {
             return;
         }
-        int ratio = image.getWidth() / image.getHeight();
+        int ratio = image.getWidth() / INPUT_SIZE;
         rgbBitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         cropRgbBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
         yuvConverter.yuvToRgb(image, rgbBitmap);
@@ -137,19 +137,12 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         drawResizedBitmap(rgbBitmap, cropRgbBitmap);
         Log.d(TAG, "rgbBitmap: " + rgbBitmap.getHeight() + " " + rgbBitmap.getWidth());
 
-        Canvas canvas = new Canvas(rgbBitmap);
-        List<VisionDetRet> results = mFaceDet.detect(rgbBitmap);
+        List<VisionDetRet> results = mFaceDet.detect(cropRgbBitmap);
         // Draw on bitmap
         if (results != null) {
+            Canvas canvas = new Canvas(rgbBitmap);
             for (final VisionDetRet ret : results) {
-                float resizeRatio = 1.0f;
-                Rect bounds = new Rect();
-                bounds.left = (int) (ret.getLeft() * resizeRatio);
-                bounds.top = (int) (ret.getTop() * resizeRatio);
-                bounds.right = (int) (ret.getRight() * resizeRatio);
-                bounds.bottom = (int) (ret.getBottom() * resizeRatio);
-
-                canvas.drawRect(bounds, mFaceLandmarkPaint);
+                float resizeRatio = 2.0f;
 
                 // Draw landmark
                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
@@ -189,6 +182,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     }
 
     private void drawMyStuff(Canvas canvas) {
-        canvas.drawBitmap(rgbBitmap, null, inputImageRect, null);
+        canvas.drawBitmap(rgbBitmap, null, new Rect(0,0, rgbBitmap.getWidth(), rgbBitmap.getHeight()), null);
+        canvas.drawBitmap(cropRgbBitmap, null,  new Rect(0,0, cropRgbBitmap.getWidth(), cropRgbBitmap.getHeight()), null);
     }
 }

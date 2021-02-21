@@ -148,8 +148,8 @@ class CameraActivity : AppCompatActivity() {
 
             // Select lensFacing depending on the available cameras
             lensFacing = when {
-                hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
                 hasBackCamera() -> CameraSelector.LENS_FACING_BACK
+                hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
                 else -> throw IllegalStateException("Back and front camera are unavailable")
             }
 
