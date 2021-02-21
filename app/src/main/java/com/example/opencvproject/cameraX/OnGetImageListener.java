@@ -38,10 +38,8 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     private Bitmap rgbBitmap = null;
     private Bitmap cropRgbBitmap = null;
 
-    private boolean mIsComputing = false;
-
     private FaceDet mFaceDet;
-    private Paint mFaceLandmardkPaint;
+    private Paint mFaceLandmarkPaint;
     private File mCascadeFile;
     private YuvToRgbConverter yuvConverter;
     private SurfaceHolder holder;
@@ -86,10 +84,10 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
             Log.e(TAG, "Failed to load cascade. Exception thrown: " + e);
         }
 
-        mFaceLandmardkPaint = new Paint();
-        mFaceLandmardkPaint.setColor(Color.RED);
-        mFaceLandmardkPaint.setStrokeWidth(2);
-        mFaceLandmardkPaint.setStyle(Paint.Style.STROKE);
+        mFaceLandmarkPaint = new Paint();
+        mFaceLandmarkPaint.setColor(Color.RED);
+        mFaceLandmarkPaint.setStrokeWidth(2);
+        mFaceLandmarkPaint.setStyle(Paint.Style.STROKE);
     }
 
     public void deInitialize() {
@@ -128,18 +126,10 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     }
 
     public void onImageAvailable(final Image image, Integer rotateDegree) {
-        if (image == null) {
-            return;
-        }
-        if (mIsComputing) {
-            image.close();
-            return;
-        }
         if (holder == null) {
             return;
         }
-        mIsComputing = true;
-
+        int ratio = image.getWidth() / image.getHeight();
         rgbBitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         cropRgbBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
         yuvConverter.yuvToRgb(image, rgbBitmap);
@@ -148,7 +138,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         Log.d(TAG, "rgbBitmap: " + rgbBitmap.getHeight() + " " + rgbBitmap.getWidth());
 
         Canvas canvas = new Canvas(rgbBitmap);
-        List<VisionDetRet> results = mFaceDet.detect(cropRgbBitmap);
+        List<VisionDetRet> results = mFaceDet.detect(rgbBitmap);
         // Draw on bitmap
         if (results != null) {
             for (final VisionDetRet ret : results) {
@@ -159,19 +149,17 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
                 bounds.right = (int) (ret.getRight() * resizeRatio);
                 bounds.bottom = (int) (ret.getBottom() * resizeRatio);
 
-                canvas.drawRect(bounds, mFaceLandmardkPaint);
+                canvas.drawRect(bounds, mFaceLandmarkPaint);
 
                 // Draw landmark
                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
                 for (Point point : landmarks) {
                     int pointX = (int) (point.x * resizeRatio);
                     int pointY = (int) (point.y * resizeRatio);
-                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmardkPaint);
+                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmarkPaint);
                 }
             }
         }
-
-        mIsComputing = false;
 
         Trace.endSection();
         tryDrawing(holder);
@@ -200,7 +188,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         }
     }
 
-    private void drawMyStuff(final Canvas canvas) {
+    private void drawMyStuff(Canvas canvas) {
         canvas.drawBitmap(rgbBitmap, null, inputImageRect, null);
     }
 }

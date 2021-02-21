@@ -211,10 +211,12 @@ class CameraActivity : AppCompatActivity() {
             // The analyzer can then be assigned to the instance
             .also {
                 it.setAnalyzer(cameraExecutor, { image ->
-                    mOnGetPreviewListener.onImageAvailable(
-                        image.image,
-                        image.imageInfo.rotationDegrees
-                    )
+                    image.image?.let { img ->
+                        mOnGetPreviewListener.onImageAvailable(
+                            img,
+                            image.imageInfo.rotationDegrees
+                        )
+                    }
                     image.close()
                 })
             }
