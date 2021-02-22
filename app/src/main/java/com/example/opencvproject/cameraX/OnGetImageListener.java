@@ -129,26 +129,25 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         if (holder == null) {
             return;
         }
-        int ratio = image.getWidth() / INPUT_SIZE;
         rgbBitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         cropRgbBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
         yuvConverter.yuvToRgb(image, rgbBitmap);
         rgbBitmap = rotate(rgbBitmap, rotateDegree);
         drawResizedBitmap(rgbBitmap, cropRgbBitmap);
-        Log.d(TAG, "rgbBitmap: " + rgbBitmap.getHeight() + " " + rgbBitmap.getWidth());
+        Log.d(TAG, "rgbBitmap: " + rgbBitmap.getWidth() + " " + cropRgbBitmap.getWidth());
 
         List<VisionDetRet> results = mFaceDet.detect(cropRgbBitmap);
         // Draw on bitmap
         if (results != null) {
             Canvas canvas = new Canvas(rgbBitmap);
-            for (final VisionDetRet ret : results) {
-                float resizeRatio = 2.0f;
 
+            float resizeRatio = ((float) rgbBitmap.getWidth()) / ((float) cropRgbBitmap.getWidth());
+            for (final VisionDetRet ret : results) {
                 // Draw landmark
                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
                 for (Point point : landmarks) {
-                    int pointX = (int) (point.x * resizeRatio);
-                    int pointY = (int) (point.y * resizeRatio);
+                    int pointX = (int) ((point.x * resizeRatio) );
+                    int pointY = (int) ((point.y + 90) * resizeRatio);
                     canvas.drawCircle(pointX, pointY, 2, mFaceLandmarkPaint);
                 }
             }
@@ -182,7 +181,6 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     }
 
     private void drawMyStuff(Canvas canvas) {
-        canvas.drawBitmap(rgbBitmap, null, new Rect(0,0, rgbBitmap.getWidth(), rgbBitmap.getHeight()), null);
-        canvas.drawBitmap(cropRgbBitmap, null,  new Rect(0,0, cropRgbBitmap.getWidth(), cropRgbBitmap.getHeight()), null);
+        canvas.drawBitmap(rgbBitmap, null, inputImageRect, null);
     }
 }
