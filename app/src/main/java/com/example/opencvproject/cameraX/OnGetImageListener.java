@@ -10,7 +10,6 @@ import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.media.Image;
-import android.os.Trace;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -84,7 +83,6 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
             mFaceDet = new FaceDet(mCascadeFile.getAbsolutePath());
 
         } catch (IOException e) {
-            e.printStackTrace();
             Log.e(TAG, "Failed to load cascade. Exception thrown: " + e);
         }
 
@@ -148,37 +146,39 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
             resizeRatio = ((float) rgbBitmap.getWidth()) / ((float) cropRgbBitmap.getWidth());
             for (final VisionDetRet ret : results) {
                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
-                Point leftEye = null, rightEye = null, leftMouth = null, rightMouth = null;
-                for (int i = 0; i < landmarks.size(); i++) {
 
-                    // draw all the landmark
+                Point leftEye = landmarks.get(36);
+                Point relativeTopLeft = landmarks.get(38);
+                Point relativeTopRight = landmarks.get(39);
+                Point relativeBottomRight = landmarks.get(40);
+                Point relativeBottomLeft = landmarks.get(41);
+                Point rightRelativeTopLeft = landmarks.get(43);
+                Point rightRelativeTopRight = landmarks.get(44);
+                Point rightRelativeBottomRight = landmarks.get(46);
+                Point rightRelativeBottomLeft = landmarks.get(47);
+                Point rightEye = landmarks.get(45);
+                Point leftMouth = landmarks.get(67);
+                Point rightMouth = landmarks.get(64);
 
+                //  draw all the landmark
+//                for (int i = 0; i < landmarks.size(); i++) {
 //                    int pointX = (int) ((landmarks.get(i).x * resizeRatio));
-//                    int pointY = (int) ((landmarks.get(i).y + 90) * resizeRatio);
+//                    int pointY = (int) ((landmarks.get(i).y + 87) * resizeRatio);
 //                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmarkPaint);
-                    if (i == 36) {
-                        leftEye = landmarks.get(i);
-                        continue;
-                    }
-                    if (i == 45) {
-                        rightEye = landmarks.get(i);
-                        continue;
+//                }
 
-                    }
-                    if (i == 48) {
-                        leftMouth = landmarks.get(i);
-                        continue;
-                    }
-                    if (i == 54) {
-                        rightMouth = landmarks.get(i);
-                    }
-                }
-                drawGlasses(canvas, leftEye, rightEye);
+                drawGlasses(canvas,
+                        leftEye,
+                        rightEye,
+                        Math.min(relativeTopLeft.y, relativeTopRight.y),
+                        Math.max(relativeBottomLeft.y, relativeBottomRight.y),
+                        Math.min(rightRelativeTopLeft.y, rightRelativeTopRight.y),
+                        Math.max(rightRelativeBottomLeft.y, rightRelativeBottomRight.y)
+                );
                 drawCigarette(canvas, leftMouth, rightMouth);
             }
         }
 
-        Trace.endSection();
         tryDrawing(holder);
     }
 
@@ -210,15 +210,23 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     }
 
 
-    private void drawGlasses(Canvas canvas, Point leftEye, Point rightEye) {
+    private void drawGlasses(
+            Canvas canvas,
+            Point leftEye,
+            Point rightEye,
+            int topLeftEye,
+            int bottomLeftEye,
+            int topRightEye,
+            int bottomRightEye) {
         if (leftEye == null || rightEye == null) return;
         canvas.drawBitmap(glassesBitmap,
                 null,
                 new Rect(
-                        (int) (leftEye.x * resizeRatio),
-                        (int) ((leftEye.y + 90) * resizeRatio),
-                        (int) (rightEye.x * resizeRatio),
-                        (int) ((leftEye.y + 90) * resizeRatio) + 30),
+                        (int) (leftEye.x * resizeRatio - 30),
+                        (int) ((Math.min(topLeftEye, topRightEye) + 87) * resizeRatio - 20),
+                        (int) (rightEye.x * resizeRatio + 30),
+                        (int) ((Math.max(bottomLeftEye, bottomRightEye) + 87) * resizeRatio + 20)
+                ),
                 null);
     }
 
@@ -229,9 +237,9 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
                 null,
                 new Rect(
                         (int) (leftMouth.x * resizeRatio) - mouthLength,
-                        (int) ((leftMouth.y + 90) * resizeRatio),
+                        (int) ((leftMouth.y + 87) * resizeRatio),
                         (int) (leftMouth.x * resizeRatio),
-                        (int) ((leftMouth.y + 90) * resizeRatio) + mouthLength),
+                        (int) ((leftMouth.y + 87) * resizeRatio) + mouthLength),
                 null);
     }
 }
