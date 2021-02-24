@@ -11,9 +11,10 @@ import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicYuvToRGB
 import android.renderscript.Type
+import com.example.opencvproject.BuildConfig
 
 /**
- * Helper class used to efficiently convert a [Media.Image] object from
+ * Helper class used to efficiently convert a [Image] object from
  * [ImageFormat.YUV_420_888] format to an RGB [Bitmap] object.
  *
  * The [yuvToRgb] method is able to achieve the same FPS as the CameraX image
@@ -68,7 +69,9 @@ class YuvToRgbConverter(context: Context) {
     }
 
     private fun imageToByteArray(image: Image, outputBuffer: ByteArray) {
-        assert(image.format == ImageFormat.YUV_420_888)
+        if (BuildConfig.DEBUG && image.format != ImageFormat.YUV_420_888) {
+            error("Assertion failed")
+        }
 
         val imageCrop = image.cropRect
         val imagePlanes = image.planes
@@ -163,7 +166,8 @@ class YuvToRgbConverter(context: Context) {
             for (row in 0 until planeHeight) {
                 // Move buffer position to the beginning of this row
                 planeBuffer.position(
-                    (row + planeCrop.top) * rowStride + planeCrop.left * pixelStride)
+                    (row + planeCrop.top) * rowStride + planeCrop.left * pixelStride
+                )
 
                 if (pixelStride == 1 && outputStride == 1) {
                     // When there is a single stride value for pixel and output, we can just copy

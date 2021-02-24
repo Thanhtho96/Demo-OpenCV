@@ -13,9 +13,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.opencvproject.R
-import java.io.File
-import java.text.SimpleDateFormat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -35,7 +36,6 @@ class CameraActivity : AppCompatActivity() {
 
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
-    private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
@@ -67,23 +67,11 @@ class CameraActivity : AppCompatActivity() {
         } ?: Unit
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        // Make sure that all permissions are still present, since the
-        // user could have removed them while the app was in paused state.
-//        if (!PermissionsFragment.hasPermissions(requireContext())) {
-//            Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
-//                CameraFragmentDirections.actionCameraToPermissions()
-//            )
-//        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
+        mOnGetPreviewListener.deInitialize()
         // Shut down our background executor
         cameraExecutor.shutdown()
-        mOnGetPreviewListener.deInitialize()
         // Unregister the broadcast receivers and listeners
         displayManager.unregisterDisplayListener(displayListener)
     }
@@ -105,7 +93,9 @@ class CameraActivity : AppCompatActivity() {
         // Every time the orientation of device changes, update rotation for use cases
         displayManager.registerDisplayListener(displayListener, null)
         // Wait for the views to be properly laid out
-        mOnGetPreviewListener.initialize()
+        lifecycleScope.launch(Dispatchers.IO) {
+            mOnGetPreviewListener.initialize()
+        }
 
         viewFinder.post {
 
@@ -141,7 +131,7 @@ class CameraActivity : AppCompatActivity() {
     /** Initialize CameraX, and prepare to bind the camera use cases  */
     private fun setUpCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener(Runnable {
+        cameraProviderFuture.addListener({
 
             // CameraProvider
             cameraProvider = cameraProviderFuture.get()
@@ -172,7 +162,7 @@ class CameraActivity : AppCompatActivity() {
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
 
-        val rotation = windowManager.defaultDisplay.rotation
+        val rotation = viewFinder.display.rotation
 
         // CameraProvider
         val cameraProvider = cameraProvider
@@ -180,26 +170,7 @@ class CameraActivity : AppCompatActivity() {
 
         // CameraSelector
         val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-
-        // Preview
-        preview = Preview.Builder()
-            // We request aspect ratio but no resolution
-            .setTargetAspectRatio(screenAspectRatio)
-            // Set initial target rotation
-            .setTargetRotation(rotation)
-            .build()
-
-        // ImageCapture
-        imageCapture = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-            // We request aspect ratio but no resolution to match preview config, but letting
-            // CameraX optimize for whatever specific resolution best fits our use cases
-            .setTargetAspectRatio(screenAspectRatio)
-            // Set initial target rotation, we will have to call this again if rotation changes
-            // during the lifecycle of this use case
-            .setTargetRotation(rotation)
-            .build()
-
+        val mirrored = lensFacing == CameraSelector.LENS_FACING_FRONT
         // ImageAnalysis
         imageAnalyzer = ImageAnalysis.Builder()
             // We request aspect ratio but no resolution
@@ -214,7 +185,8 @@ class CameraActivity : AppCompatActivity() {
                     image.image?.let { img ->
                         mOnGetPreviewListener.onImageAvailable(
                             img,
-                            image.imageInfo.rotationDegrees
+                            image.imageInfo.rotationDegrees,
+                            mirrored
                         )
                     }
                     image.close()
@@ -228,7 +200,7 @@ class CameraActivity : AppCompatActivity() {
             // A variable number of use-cases can be passed here -
             // camera provides access to CameraControl & CameraInfo
             camera = cameraProvider.bindToLifecycle(
-                this, cameraSelector, /*preview,*/ imageCapture, imageAnalyzer
+                this, cameraSelector, /*preview,*/ /*imageCapture,*/ imageAnalyzer
             )
 
             // Attach the viewfinder's surface provider to preview use case
@@ -239,7 +211,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     /**
-     *  [androidx.camera.core.ImageAnalysisConfig] requires enum value of
+     *  [androidx.camera.core.impl.ImageAnalysisConfig] requires enum value of
      *  [androidx.camera.core.AspectRatio]. Currently it has values of 4:3 & 16:9.
      *
      *  Detecting the most suitable ratio for dimensions provided in @params by counting absolute
@@ -312,16 +284,8 @@ class CameraActivity : AppCompatActivity() {
     companion object {
 
         private const val TAG = "CameraXBasic"
-        private const val FILENAME = "yyyy-MM-dd-HH-mm-ss-SSS"
-        private const val PHOTO_EXTENSION = ".jpg"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
 
-        /** Helper function used to create a timestamped file */
-        private fun createFile(baseFolder: File, format: String, extension: String) =
-            File(
-                baseFolder, SimpleDateFormat(format, Locale.US)
-                    .format(System.currentTimeMillis()) + extension
-            )
     }
 }
