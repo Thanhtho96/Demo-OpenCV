@@ -121,7 +121,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         canvas.drawBitmap(src, matrix, null);
     }
 
-    private Bitmap rotate(Bitmap bitmap, Integer degree) {
+    private Bitmap rotate(Bitmap bitmap, Float degree) {
         Matrix matrix = new Matrix();
         matrix.postRotate(degree);
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
@@ -134,7 +134,7 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         rgbBitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         cropRgbBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888);
         yuvConverter.yuvToRgb(image, rgbBitmap);
-        rgbBitmap = rotate(rgbBitmap, rotateDegree);
+        rgbBitmap = rotate(rgbBitmap, Float.valueOf(rotateDegree));
         drawResizedBitmap(rgbBitmap, cropRgbBitmap);
         Log.d(TAG, "rgbBitmap: " + rgbBitmap.getWidth() + " " + cropRgbBitmap.getWidth());
 
@@ -147,6 +147,10 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
             for (final VisionDetRet ret : results) {
                 ArrayList<Point> landmarks = ret.getFaceLandmarks();
 
+                // Todo clean this stuff
+
+                Point topEyeBrowLeft = landmarks.get(19);
+                Point topEyeBrowRight = landmarks.get(24);
                 Point leftEye = landmarks.get(36);
                 Point relativeTopLeft = landmarks.get(38);
                 Point relativeTopRight = landmarks.get(39);
@@ -160,20 +164,37 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
                 Point leftMouth = landmarks.get(67);
                 Point rightMouth = landmarks.get(64);
 
+                // Todo replace 90 with margin top
+
                 //  draw all the landmark
 //                for (int i = 0; i < landmarks.size(); i++) {
 //                    int pointX = (int) ((landmarks.get(i).x * resizeRatio));
-//                    int pointY = (int) ((landmarks.get(i).y + 87) * resizeRatio);
+//                    int pointY = (int) ((landmarks.get(i).y + 90) * resizeRatio);
 //                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmarkPaint);
 //                }
+                Point topLeftEyePoint;
+                if (relativeTopLeft.y < relativeTopRight.y) {
+                    topLeftEyePoint = relativeTopLeft;
+                } else {
+                    topLeftEyePoint = relativeTopRight;
+                }
 
-                drawGlasses(canvas,
+                Point topRightEyePoint;
+                if (rightRelativeTopLeft.y < rightRelativeTopRight.y) {
+                    topRightEyePoint = rightRelativeTopLeft;
+                } else {
+                    topRightEyePoint = rightRelativeTopRight;
+                }
+                drawGlasses(
+                        canvas,
                         leftEye,
                         rightEye,
-                        Math.min(relativeTopLeft.y, relativeTopRight.y),
+                        topLeftEyePoint,
+                        topRightEyePoint,
                         Math.max(relativeBottomLeft.y, relativeBottomRight.y),
-                        Math.min(rightRelativeTopLeft.y, rightRelativeTopRight.y),
-                        Math.max(rightRelativeBottomLeft.y, rightRelativeBottomRight.y)
+                        Math.max(rightRelativeBottomLeft.y, rightRelativeBottomRight.y),
+                        topEyeBrowLeft.y,
+                        topEyeBrowRight.y
                 );
                 drawCigarette(canvas, leftMouth, rightMouth);
             }
@@ -209,23 +230,36 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
         canvas.drawBitmap(rgbBitmap, null, inputImageRect, null);
     }
 
-
     private void drawGlasses(
             Canvas canvas,
             Point leftEye,
             Point rightEye,
-            int topLeftEye,
+            Point topLeftEyePoint,
+            Point topRightEyePoint,
             int bottomLeftEye,
-            int topRightEye,
-            int bottomRightEye) {
+            int bottomRightEye,
+            int topEyeBrowLeft,
+            int topEyeBrowRight
+    ) {
         if (leftEye == null || rightEye == null) return;
-        canvas.drawBitmap(glassesBitmap,
+        Bitmap glass = glassesBitmap;
+        int eyeAndEyeBrowDistance = (int) (((topLeftEyePoint.y - topEyeBrowLeft) / 2) * resizeRatio);
+        double length = topRightEyePoint.x - topLeftEyePoint.x;
+        double height = Math.abs(topLeftEyePoint.y - topRightEyePoint.y);
+        float degrees = (float) Math.toDegrees(Math.tan(height / length));
+        if (topLeftEyePoint.y > topRightEyePoint.y) {
+            degrees = -degrees;
+        }
+        glass = rotate(glass, degrees);
+
+        canvas.drawBitmap(
+                glass,
                 null,
                 new Rect(
-                        (int) (leftEye.x * resizeRatio - 30),
-                        (int) ((Math.min(topLeftEye, topRightEye) + 87) * resizeRatio - 20),
-                        (int) (rightEye.x * resizeRatio + 30),
-                        (int) ((Math.max(bottomLeftEye, bottomRightEye) + 87) * resizeRatio + 20)
+                        (int) (leftEye.x * resizeRatio - eyeAndEyeBrowDistance),
+                        (int) ((Math.min(topLeftEyePoint.y, topRightEyePoint.y) + 90) * resizeRatio - eyeAndEyeBrowDistance),
+                        (int) (rightEye.x * resizeRatio + eyeAndEyeBrowDistance),
+                        (int) ((Math.max(bottomLeftEye, bottomRightEye) + 90) * resizeRatio + eyeAndEyeBrowDistance)
                 ),
                 null);
     }
@@ -233,13 +267,14 @@ public class OnGetImageListener extends SurfaceView implements SurfaceHolder.Cal
     private void drawCigarette(Canvas canvas, Point leftMouth, Point rightMouth) {
         if (leftMouth == null || rightMouth == null) return;
         int mouthLength = (int) ((rightMouth.x - leftMouth.x) * resizeRatio);
-        canvas.drawBitmap(cigaretteBitmap,
+        canvas.drawBitmap(
+                cigaretteBitmap,
                 null,
                 new Rect(
                         (int) (leftMouth.x * resizeRatio) - mouthLength,
-                        (int) ((leftMouth.y + 87) * resizeRatio),
+                        (int) ((leftMouth.y + 90) * resizeRatio),
                         (int) (leftMouth.x * resizeRatio),
-                        (int) ((leftMouth.y + 87) * resizeRatio) + mouthLength),
+                        (int) ((leftMouth.y + 90) * resizeRatio) + mouthLength),
                 null);
     }
 }
