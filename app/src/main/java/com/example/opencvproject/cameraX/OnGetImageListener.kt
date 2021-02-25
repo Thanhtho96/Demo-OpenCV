@@ -23,6 +23,9 @@ import kotlin.math.*
  */
 class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(context, attrs),
     SurfaceHolder.Callback {
+
+    private val TAG = javaClass::class.java.name
+
     private lateinit var rgbBitmap: Bitmap
     private lateinit var cropRgbBitmap: Bitmap
     private var mFaceDet: FaceDet? = null
@@ -33,6 +36,7 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
     private val glassRect: Rect = Rect()
     private val cigaretteRect = Rect()
     private var resizeRatio = 0f
+    private lateinit var mFaceLandmarkPaint: Paint
 
     // The glasses, cigarette bitmap
     private val glassesBitmap = BitmapFactory.decodeResource(resources, R.drawable.glasses)
@@ -53,6 +57,11 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
                 outputStream.close()
             }
             mFaceDet = FaceDet(mCascadeFile?.absolutePath)
+
+            mFaceLandmarkPaint = Paint()
+            mFaceLandmarkPaint.color = Color.RED
+            mFaceLandmarkPaint.strokeWidth = 2f
+            mFaceLandmarkPaint.style = Paint.Style.STROKE
         } catch (e: IOException) {
             Log.e(TAG, "Failed to load cascade. Exception thrown: $e")
         }
@@ -118,10 +127,10 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
                 // Todo replace 90 with margin top
 
                 //  draw all the landmark
-//                for (int i = 0; i < landmarks.size(); i++) {
-//                    int pointX = (int) ((landmarks.get(i).x * resizeRatio));
-//                    int pointY = (int) ((landmarks.get(i).y + 90) * resizeRatio);
-//                    canvas.drawCircle(pointX, pointY, 2, mFaceLandmarkPaint);
+//                landmarks.forEach {
+//                    val pointX = it.x * resizeRatio
+//                    val pointY = (it.y + 90) * resizeRatio
+//                    canvas.drawCircle(pointX, pointY, 2F, mFaceLandmarkPaint)
 //                }
                 drawGlasses(
                     canvas,
@@ -226,7 +235,6 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
 
     companion object {
         private const val INPUT_SIZE = 224
-        private const val TAG = "OnGetImageListener"
     }
 
     init {
