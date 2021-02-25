@@ -1,2 +1,2 @@
 OpenCV Project
-First it use OpenCv now Dlib and it still need improvement (lag as hell on low-end devices)
+First, it uses OpenCV now Dlib; and it still needs improvement (lag as hell on low-end devices)
