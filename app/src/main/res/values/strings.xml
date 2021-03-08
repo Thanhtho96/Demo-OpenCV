@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OpenCvProject</string>
+    <string name="unknown">Unknown</string>
 </resources>

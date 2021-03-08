@@ -37,6 +37,13 @@ android {
             }
         }
     }
+    aaptOptions {
+        noCompress "tflite"
+        noCompress "lite"
+    }
+    buildFeatures {
+        mlModelBinding true
+    }
 }
 
 dependencies {
@@ -46,7 +53,9 @@ dependencies {
     implementation 'com.google.android.material:material:1.3.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
     implementation project(path: ':dlib')
+    implementation fileTree(dir: 'libs', include: ['*.aar'])
     implementation 'androidx.exifinterface:exifinterface:1.3.2'
+    implementation 'org.tensorflow:tensorflow-lite-metadata:0.1.0-rc1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
@@ -61,4 +70,14 @@ dependencies {
 
     // CameraX Lifecycle library
     implementation "androidx.camera:camera-lifecycle:$camerax_version"
+
+    // CameraX View class
+    implementation "androidx.camera:camera-view:1.0.0-alpha22"
+
+    // Tensorflow lite dependencies
+    implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
+    implementation 'org.tensorflow:tensorflow-lite-gpu:0.0.0-nightly'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.0.0-nightly'
+
+//    implementation 'org.tensorflow:tensorflow-lite-select-tf-ops:2.4.0'
 }

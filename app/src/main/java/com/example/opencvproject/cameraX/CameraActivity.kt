@@ -56,7 +56,7 @@ class CameraActivity : AppCompatActivity() {
 
         // Wait for the views to be properly laid out
         lifecycleScope.launch(Dispatchers.IO) {
-            mOnGetPreviewListener.initialize()
+            mOnGetPreviewListener.initialize(lifecycleScope)
         }
 
         mOnGetPreviewListener.post {
@@ -75,8 +75,8 @@ class CameraActivity : AppCompatActivity() {
 
             // Select lensFacing depending on the available cameras
             lensFacing = when {
-                hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
                 hasBackCamera() -> CameraSelector.LENS_FACING_BACK
+                hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
                 else -> throw IllegalStateException("Back and front camera are unavailable")
             }
 

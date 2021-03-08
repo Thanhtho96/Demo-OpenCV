@@ -7,6 +7,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import androidx.lifecycle.LifecycleCoroutineScope
 import com.example.opencvproject.R
 import com.example.opencvproject.utils.computeExifOrientation
 import com.example.opencvproject.utils.decodeExifOrientation
@@ -38,6 +39,7 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
     private var compensateTranslateX = 0f
     private var compensateTranslateY = 0f
     private lateinit var mFaceLandmarkPaint: Paint
+    private lateinit var lifeCycleScope: LifecycleCoroutineScope
 
     private val cropRgbBitmap by lazy {
         Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
@@ -51,11 +53,12 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
         BitmapFactory.decodeResource(resources, R.drawable.cigarette)
     }
 
-    fun initialize() {
+    fun initialize(lifecycleCoroutineScope: LifecycleCoroutineScope) {
         try {
-            val inputStream = context.assets.open("shape_predictor_68_face_landmarks.dat")
+            this.lifeCycleScope = lifecycleCoroutineScope
+            val inputStream = context.assets.open("dogo_landmark.dat")
             val cascadeDir = context.getDir("cascade", Context.MODE_PRIVATE)
-            mCascadeFile = File(cascadeDir, "shape_predictor_68_face_landmarks.dat")
+            mCascadeFile = File(cascadeDir, "dogo_landmark.dat")
             if (mCascadeFile?.exists() == false) {
                 val outputStream = FileOutputStream(mCascadeFile)
                 val buffer = ByteArray(4096)
@@ -72,7 +75,7 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
             mFaceLandmarkPaint.color = Color.RED
             mFaceLandmarkPaint.strokeWidth = 2f
             mFaceLandmarkPaint.style = Paint.Style.STROKE
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Failed to load cascade. Exception thrown: $e")
         }
     }
@@ -146,33 +149,26 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
             for (ret in results) {
                 val landmarks = ret.faceLandmarks
 
-                val eyeBrowLeft = landmarks[20]
-                val topNose = landmarks[27]
-                val bottomNose = landmarks[30]
-                val leftEye = landmarks[36]
-                val topLeftEyePoint = landmarks[38]
-                val topRightEyePoint = landmarks[43]
-                val rightEye = landmarks[45]
-                val leftMouth = landmarks[67]
-                val rightMouth = landmarks[64]
+//                val topHead = landmarks[0]
+//                val rightEar = landmarks[1]
+//                val rightEye = landmarks[2]
+//                val nose = landmarks[3]
+//                val leftEar = landmarks[4]
+//                val leftEye = landmarks[5]
+
 
                 //  draw all the landmark
 //                landmarks.forEach {
-//                    val pointX = (it.x * resizeRatio) + (width - height) / 2
-//                    val pointY = (it.y * resizeRatio)
-//                    canvas.drawCircle(pointX, pointY, 2F, mFaceLandmarkPaint)
+//                    val pointX = (it.x * resizeRatio) + compensateTranslateX
+//                    val pointY = (it.y * resizeRatio) + compensateTranslateY
+//                    canvas.drawCircle(pointX, pointY, 5F, mFaceLandmarkPaint)
 //                }
 
-                canvas.drawGlasses(
-                    leftEye,
-                    rightEye,
-                    topLeftEyePoint,
-                    topRightEyePoint,
-                    eyeBrowLeft.y,
-                    topNose,
-                    bottomNose
-                )
-                canvas.drawCigarette(leftMouth, rightMouth)
+//                canvas.drawGlasses(
+//                    leftEye,
+//                    rightEye,
+//                    leftEar
+//                )
             }
         }
         surfaceHolder?.let { tryDrawing(it) }
@@ -213,25 +209,22 @@ class OnGetImageListener(context: Context?, attrs: AttributeSet?) : SurfaceView(
     private fun Canvas.drawGlasses(
         leftEye: Point,
         rightEye: Point,
-        topLeftEyePoint: Point,
-        topRightEyePoint: Point,
-        eyeBrowLeft: Int,
-        topNose: Point,
-        bottomNose: Point
+        leftEar: Point
     ) {
-        val eyeAndEyeBrowDistance = (topLeftEyePoint.y - eyeBrowLeft) / 2 * resizeRatio
-        val length = (topRightEyePoint.x - topLeftEyePoint.x).toDouble()
-        val height = abs(topLeftEyePoint.y - topRightEyePoint.y).toDouble()
-        var degrees = toDegrees(tan(height / length)).toFloat()
-        if (topLeftEyePoint.y > topRightEyePoint.y) {
+        val eyeAndEyeBrowDistance = distanceBetweenPoints(leftEye, leftEar) / 2
+        val eyeAndEyeDistance = distanceBetweenPoints(leftEye, rightEye)
+        val topLeftPoint = Point(leftEye.x, rightEye.y)
+        val height = abs(distanceBetweenPoints(topLeftPoint, leftEye))
+        var degrees = toDegrees(tan(height / eyeAndEyeDistance)).toFloat()
+        if (leftEye.y > rightEye.y) {
             degrees = -degrees
         }
-        val topRect = topNose.y * resizeRatio - eyeAndEyeBrowDistance
+        val topRect = leftEye.y * resizeRatio - eyeAndEyeBrowDistance
         glassRect.set(
             (leftEye.x * resizeRatio - eyeAndEyeBrowDistance).toInt(),
             topRect.toInt(),
             (rightEye.x * resizeRatio + eyeAndEyeBrowDistance).toInt(),
-            (topRect + distanceBetweenPoints(topNose, bottomNose)).toInt()
+            (leftEye.y * resizeRatio + eyeAndEyeBrowDistance).toInt()
         )
         drawRotateCanvas(glassesBitmap, degrees, glassRect)
     }
